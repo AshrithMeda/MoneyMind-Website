@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Staff Login | MoneyQuest</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="nav"></div>
+
+  <main class="section">
+    <div class="container">
+      <div class="card form">
+        <span class="pill">Staff access</span>
+        <h1>Staff Login</h1>
+        <p class="muted">Use the staff account configured for this browser installation.</p>
+
+        <form id="login-form" class="auth-form">
+          <div class="field">
+            <label>Username</label>
+            <input id="email" type="text" required autocomplete="username">
+          </div>
+          <div class="field">
+            <label>Password</label>
+            <input id="password" type="password" required autocomplete="current-password">
+          </div>
+          <button class="btn primary" type="submit">Log In</button>
+          <p id="message"></p>
+        </form>
+
+      </div>
+    </div>
+  </main>
+
+  <div id="footer"></div>
+  <script src="js/common.js"></script>
+  <script src="js/login.js"></script>
+</body>
+</html>
+
