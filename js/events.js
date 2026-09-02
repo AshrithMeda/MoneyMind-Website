@@ -23,6 +23,7 @@ async function renderEventCards() {
     const { confirmed, waitlist } = summaries[index];
     const spotsRemaining = Math.max(0, Number(event.capacity) - confirmed);
     const full = confirmed >= Number(event.capacity);
+    const waitlistEnabled = !!event.waitlist_enabled;
     const isPast = isEventPast(event);
 
     return `
@@ -44,7 +45,11 @@ async function renderEventCards() {
           <strong>${isPast ? 'Archived event' : `${spotsRemaining} spots left`}</strong>
           ${isPast
             ? `<span class="btn disabled">View archive</span>`
-            : (full ? `<span class="btn disabled">${waitlist ? 'Waitlist Open' : 'Registration Full'}</span>` : `<a class="btn primary" href="event.html?id=${encodeURIComponent(event.id)}">View & sign up</a>`)}
+            : (full
+              ? (waitlistEnabled
+                ? `<a class="btn primary" href="event.html?id=${encodeURIComponent(event.id)}">Join waitlist${waitlist ? ` (${waitlist} waiting)` : ''}</a>`
+                : '<span class="btn disabled">Registration Full</span>')
+              : `<a class="btn primary" href="event.html?id=${encodeURIComponent(event.id)}">View & sign up</a>`)}
         </div>
       </article>
     `;

@@ -52,9 +52,33 @@ if (box) (async () => {
         <button class="btn primary" type="submit" ${full && !waitlistEnabled ? 'disabled' : ''}>${full ? 'Join Waitlist' : 'Reserve My Spot'}</button>
         <p id="reg-message"></p>
       </form>
+      <dialog id="registration-success" class="registration-success-modal">
+        <div class="registration-success-modal__inner">
+          <button type="button" class="registration-success-modal__close" aria-label="Close confirmation">×</button>
+          <div class="registration-success-modal__sparkle" aria-hidden="true">✦</div>
+          <div class="registration-success-modal__check" aria-hidden="true">✓</div>
+          <p class="registration-success-modal__eyebrow">You're all set</p>
+          <h2>Thank you for registering!</h2>
+          <p id="registration-success-message" class="registration-success-modal__message"></p>
+          <div class="registration-success-modal__contact">
+            <span aria-hidden="true">?</span>
+            <p>Questions about the event?<br><a href="mailto:moneyminds@gmail.com">moneyminds@gmail.com</a></p>
+          </div>
+          <button type="button" class="btn primary registration-success-modal__done">Sounds good</button>
+        </div>
+      </dialog>
     `;
 
     const form = document.getElementById('registration-form');
+    const successModal = document.getElementById('registration-success');
+    const successMessage = document.getElementById('registration-success-message');
+    const closeSuccessModal = () => successModal.close();
+    successModal.querySelector('.registration-success-modal__close').addEventListener('click', closeSuccessModal);
+    successModal.querySelector('.registration-success-modal__done').addEventListener('click', closeSuccessModal);
+    successModal.addEventListener('click', event => {
+      if (event.target === successModal) closeSuccessModal();
+    });
+
     if (form) {
       form.addEventListener('submit', async event => {
         event.preventDefault();
@@ -88,7 +112,8 @@ if (box) (async () => {
           return;
         }
 
-        alert(`Thank you for registering for our ${workshop.title} workshop! We hope to see you at ${workshop.location} on ${formatDate(workshop.date)}! If you have any questions regarding the event, please don't hesitate to contact us at moneyminds@gmail.com`);
+        successMessage.textContent = `We hope to see you at ${workshop.location} on ${formatDate(workshop.date)}!`;
+        successModal.showModal();
         message.textContent = '';
         form.reset();
       });

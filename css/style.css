@@ -755,6 +755,28 @@ hr {
 .registration-table { min-width: 980px; }
 .status-select { border: 1px solid var(--line); border-radius: 8px; padding: 0.45rem 0.55rem; background: #fff; color: var(--ink); font-weight: 700; }
 
+.registration-success-modal { width: min(520px, calc(100% - 2rem)); padding: 0; border: 0; border-radius: 14px; overflow: visible; color: var(--navy); background: transparent; box-shadow: 0 28px 90px rgba(18, 59, 104, 0.3); }
+.registration-success-modal[open] { animation: registration-modal-in 0.45s cubic-bezier(0.2, 0.85, 0.3, 1) both; }
+.registration-success-modal::backdrop { background: rgba(18, 59, 104, 0.62); backdrop-filter: blur(5px); animation: registration-backdrop-in 0.3s ease both; }
+.registration-success-modal__inner { position: relative; overflow: hidden; padding: 3.3rem 2.4rem 2.2rem; text-align: center; background: #fffdf7; border: 8px solid #fff; border-radius: 14px; }
+.registration-success-modal__inner::before { content: ''; position: absolute; inset: 0 0 auto; height: 106px; background: var(--blue); clip-path: polygon(0 0, 100% 0, 100% 72%, 82% 100%, 59% 72%, 38% 100%, 18% 72%, 0 100%); }
+.registration-success-modal__close { position: absolute; z-index: 2; top: 0.65rem; right: 0.8rem; width: 35px; height: 35px; border: 0; border-radius: 50%; color: #fff; background: rgba(255, 255, 255, 0.18); font-size: 1.5rem; line-height: 1; cursor: pointer; }
+.registration-success-modal__sparkle { position: absolute; z-index: 2; top: 0.8rem; left: 1.1rem; color: var(--yellow); font-size: 1.4rem; animation: registration-sparkle 1.8s ease-in-out infinite; }
+.registration-success-modal__check { position: relative; z-index: 1; display: grid; place-items: center; width: 74px; height: 74px; margin: 0 auto 1rem; border: 6px solid #fff; border-radius: 50%; color: var(--navy); background: var(--yellow); font-size: 2.1rem; font-weight: 800; box-shadow: 0 8px 0 rgba(18, 59, 104, 0.14); animation: registration-check-in 0.6s 0.18s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+.registration-success-modal__eyebrow { margin: 0 0 0.45rem; color: var(--orange); font-size: 0.75rem; font-weight: 900; letter-spacing: 0.15em; text-transform: uppercase; }
+.registration-success-modal h2 { margin-bottom: 0.65rem; font-size: clamp(2rem, 5vw, 2.8rem); }
+.registration-success-modal__message { max-width: 390px; margin: 0 auto 1.2rem; color: var(--muted); font-size: 1.05rem; }
+.registration-success-modal__contact { display: flex; align-items: center; gap: 0.75rem; max-width: 350px; margin: 0 auto 1.4rem; padding: 0.8rem 1rem; text-align: left; background: var(--yellow-soft); border-left: 4px solid var(--yellow); }
+.registration-success-modal__contact > span { display: grid; place-items: center; width: 27px; height: 27px; border-radius: 50%; color: #fff; background: var(--blue); font-weight: 800; }
+.registration-success-modal__contact p { margin: 0; color: var(--muted); font-size: 0.86rem; line-height: 1.45; }
+.registration-success-modal__contact a { color: var(--blue-deep); font-weight: 800; }
+.registration-success-modal__done { min-width: 150px; }
+
+@keyframes registration-modal-in { from { opacity: 0; transform: translateY(24px) scale(0.92) rotate(-1deg); } to { opacity: 1; transform: translateY(0) scale(1) rotate(0); } }
+@keyframes registration-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes registration-check-in { from { opacity: 0; transform: scale(0.4) rotate(-25deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
+@keyframes registration-sparkle { 0%, 100% { transform: rotate(0) scale(1); } 50% { transform: rotate(18deg) scale(1.2); } }
+
 .event-tabs {
   display: flex;
   gap: 0.75rem;
