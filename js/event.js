@@ -2,12 +2,12 @@ const box = document.getElementById('event');
 const workshopId = getId();
 
 if (box) {
-  const workshop = getEventById(workshopId) || loadAppData().events[0];
+  const workshop = getEventById(workshopId);
 
   if (!workshop) {
     box.innerHTML = '<div class="error">No workshop selected.</div>';
   } else {
-    const { confirmed, waitlist } = getRegistrationSummary(workshop.id);
+    const { confirmed } = getRegistrationSummary(workshop.id);
     const full = confirmed >= Number(workshop.capacity);
 
     box.innerHTML = `

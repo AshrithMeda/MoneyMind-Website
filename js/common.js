@@ -6,43 +6,10 @@ const MONEYQUEST_AUTH_LIMIT = { maxAttempts: 5, lockoutMs: 10 * 60 * 1000 };
 const DEFAULT_ADMIN_USERNAME = 'AshrithMeda';
 const DEFAULT_ADMIN_PASSWORD = 'meda8961*';
 const DEFAULT_ADMIN_SALT = 'moneyquest-default-admin-salt-v1';
+const LEGACY_EVENT_IDS = new Set(['island-survival', 'startup-lab', 'money-escape-room']);
 
 const defaultData = {
-  events: [
-    {
-      id: 'island-survival',
-      title: 'Survive the Island',
-      emoji: '🏝️',
-      date: '2026-09-12T10:00:00',
-      location: 'Southside Community Center',
-      capacity: 24,
-      description: 'Teams make budget decisions, respond to unexpected events, and help each other escape a stranded-island challenge with real tradeoffs and limited resources.',
-      financial_concepts: ['Budgeting', 'Emergency planning', 'Decision-making'],
-      published: true
-    },
-    {
-      id: 'startup-lab',
-      title: 'Build a Business',
-      emoji: '🚀',
-      date: '2026-09-19T10:00:00',
-      location: 'Downtown Learning Lab',
-      capacity: 20,
-      description: 'Students create a tiny product, price it, pitch it, and learn what actually makes a business sustainable.',
-      financial_concepts: ['Pricing', 'Marketing', 'Profit'],
-      published: true
-    },
-    {
-      id: 'money-escape-room',
-      title: 'Financial Escape Room',
-      emoji: '🔐',
-      date: '2026-10-03T11:00:00',
-      location: 'North Campus Studio',
-      capacity: 16,
-      description: 'A timed puzzle challenge where students unlock each stage by solving money problems around saving, debt, investing, and values.',
-      financial_concepts: ['Saving', 'Debt', 'Investing'],
-      published: true
-    }
-  ],
+  events: [],
   registrations: []
 };
 
@@ -54,10 +21,14 @@ function loadAppData() {
       return structuredClone(defaultData);
     }
     const parsed = JSON.parse(raw);
-    return {
-      events: Array.isArray(parsed.events) ? parsed.events : defaultData.events,
+    const data = {
+      events: Array.isArray(parsed.events)
+        ? parsed.events.filter(event => event && !LEGACY_EVENT_IDS.has(event.id))
+        : [],
       registrations: Array.isArray(parsed.registrations) ? parsed.registrations : []
     };
+    localStorage.setItem(MONEYQUEST_STORAGE_KEY, JSON.stringify(data));
+    return data;
   } catch (error) {
     localStorage.setItem(MONEYQUEST_STORAGE_KEY, JSON.stringify(defaultData));
     return structuredClone(defaultData);
