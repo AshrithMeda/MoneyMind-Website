@@ -81,8 +81,14 @@ if (box) (async () => {
           consent
         });
 
-        message.className = result.status === 'confirmed' ? 'notice' : 'error';
-        message.textContent = result.message;
+        if (!result.ok) {
+          message.className = 'error';
+          message.textContent = result.message;
+          return;
+        }
+
+        alert(`Thank you for registering for our ${workshop.title} workshop! We hope to see you at ${workshop.location} on ${formatDate(workshop.date)}! If you have any questions regarding the event, please don't hesitate to contact us at moneyminds@gmail.com`);
+        message.textContent = '';
         form.reset();
       });
     }
