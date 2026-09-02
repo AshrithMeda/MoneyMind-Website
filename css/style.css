@@ -653,6 +653,8 @@ hr {
 }
 
 .dashboard-head__actions { display: flex; gap: 0.7rem; flex-wrap: wrap; }
+.role-badge { display: inline-flex; margin-top: 0.45rem; padding: 0.28rem 0.55rem; border-radius: 5px; background: var(--yellow-soft); color: var(--blue-deep); font-size: 0.75rem; font-weight: 800; text-transform: capitalize; }
+.dashboard-head__actions .btn.primary { background: var(--yellow); color: var(--navy); box-shadow: 4px 4px 0 var(--navy); }
 
 .dashboard-grid {
   display: grid;
@@ -694,6 +696,13 @@ hr {
 .dashboard-card--wide { grid-column: 1 / -1; }
 .dashboard-card--create { border-top: 4px solid var(--blue); }
 .card-kicker { color: var(--blue); font-size: 0.72rem; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 0.35rem; }
+.analytics-card { margin-bottom: 1.4rem; background: #fff; }
+.analytics-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.8rem; }
+.analytics-stat { padding: 1rem; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-strong); min-width: 0; }
+.analytics-stat span, .analytics-stat small { display: block; color: var(--muted); }
+.analytics-stat span { font-size: 0.78rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; }
+.analytics-stat strong { display: block; overflow: hidden; color: var(--navy); font-family: 'Fraunces', Georgia, serif; font-size: 1.8rem; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+.analytics-stat small { font-size: 0.78rem; }
 
 .stat {
   font-size: 2rem;
@@ -1032,6 +1041,7 @@ footer b {
 
   .dashboard-head__actions { width: 100%; }
   .dashboard-head__actions .btn { flex: 1; }
+  .analytics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .registration-toolbar { align-items: stretch; flex-direction: column; }
   .registration-toolbar .field { min-width: 0; }
   .dialog-form { padding: 1.1rem; }

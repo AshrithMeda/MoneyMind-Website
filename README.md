@@ -23,5 +23,7 @@ A simple static website for a youth financial literacy nonprofit. Events and reg
 2. Open the SQL Editor and run `supabase/schema.sql` once.
 3. Host the site over `http://localhost` or HTTPS so browser requests to Supabase are allowed.
 
+Run `supabase/schema.sql` again after dashboard upgrades. It creates the analytics and global reload-signal tables used by the staff dashboard.
+
 ## Hosting
 This folder can be hosted on any static host such as GitHub Pages, Netlify, Cloudflare Pages, or a traditional web host.

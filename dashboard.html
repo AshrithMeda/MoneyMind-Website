@@ -16,14 +16,24 @@
           <span class="pill">Operations center</span>
           <h1>Workshop Manager</h1>
           <p class="muted">Plan sessions, monitor capacity, and keep every registration organized.</p>
+          <span id="current-role" class="role-badge"></span>
         </div>
         <div class="dashboard-head__actions">
           <button id="refresh" class="btn secondary">Refresh data</button>
+          <button id="reload-all" class="btn primary">Reload site for everyone</button>
           <button id="logout" class="btn secondary">Log out</button>
         </div>
       </div>
 
       <div id="stats" class="statgrid"></div>
+
+      <section class="card dashboard-card analytics-card">
+        <div class="section-head">
+          <div><div class="card-kicker">Reach snapshot</div><h2>Site analytics</h2></div>
+          <span class="muted">Anonymous page-view trends</span>
+        </div>
+        <div id="analytics-summary" class="analytics-grid"><span class="muted">Loading analytics…</span></div>
+      </section>
 
       <div class="dashboard-grid">
         <section class="card dashboard-card dashboard-card--create">
@@ -55,6 +65,7 @@
           <form id="admin-form">
             <div class="field"><label>New admin username</label><input id="new-admin-username" type="text" minlength="3" required></div>
             <div class="field"><label>New admin password</label><input id="new-admin-password" type="password" minlength="8" required></div>
+            <div class="field"><label>Permission level</label><select id="new-admin-role"><option value="manager">Manager: events and registrations</option><option value="viewer">Viewer: read-only access</option></select></div>
             <button class="btn secondary" type="submit">Create new admin login</button>
             <p id="admin-message"></p>
           </form>

@@ -5,6 +5,9 @@ const MONEYQUEST_AUTH_LIMIT = { maxAttempts: 5, lockoutMs: 10 * 60 * 1000 };
 const DEFAULT_ADMIN_USERNAME = 'AshrithMeda';
 const DEFAULT_ADMIN_PASSWORD = 'meda8961*';
 const DEFAULT_ADMIN_SALT = 'moneyquest-default-admin-salt-v1';
+const ANALYTICS_VISITOR_KEY = 'moneyquest_analytics_visitor_v1';
+const RELOAD_POLL_MS = 10000;
+const pageStartedAt = new Date().toISOString();
 
 async function supabaseRequest(path, options = {}) {
   const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
@@ -24,6 +27,66 @@ async function supabaseRequest(path, options = {}) {
 
   const body = await response.text();
   return body ? JSON.parse(body) : null;
+}
+
+function getAnalyticsVisitorId() {
+  let visitorId = localStorage.getItem(ANALYTICS_VISITOR_KEY);
+  if (!visitorId) {
+    visitorId = crypto.randomUUID ? crypto.randomUUID() : `visitor-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    localStorage.setItem(ANALYTICS_VISITOR_KEY, visitorId);
+  }
+  return visitorId;
+}
+
+async function trackPageView() {
+  try {
+    await supabaseRequest('site_analytics', {
+      method: 'POST',
+      headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({
+        visitor_id: getAnalyticsVisitorId(),
+        path: `${location.pathname.split('/').pop() || 'index.html'}${location.search}`,
+        referrer: document.referrer || null
+      })
+    });
+  } catch (error) {
+    console.warn('Analytics unavailable:', error.message);
+  }
+}
+
+async function getSiteAnalytics() {
+  return supabaseRequest('site_analytics?select=visitor_id,path,created_at&order=created_at.desc');
+}
+
+async function publishGlobalReload() {
+  await supabaseRequest('site_reload_signals', {
+    method: 'POST',
+    headers: { Prefer: 'return=minimal' },
+    body: JSON.stringify({ requested_by: getCurrentStaffSession()?.username || 'admin' })
+  });
+}
+
+function watchForGlobalReload() {
+  let initialSignalId = null;
+  let ready = false;
+
+  const checkForReload = async () => {
+    try {
+      const signals = await supabaseRequest('site_reload_signals?select=id&order=created_at.desc&limit=1');
+      const latestSignalId = signals?.[0]?.id || null;
+      if (!ready) {
+        initialSignalId = latestSignalId;
+        ready = true;
+        return;
+      }
+      if (latestSignalId && latestSignalId !== initialSignalId) location.reload();
+    } catch (error) {
+      console.warn('Global reload watcher unavailable:', error.message);
+    }
+  };
+
+  checkForReload();
+  window.setInterval(checkForReload, RELOAD_POLL_MS);
 }
 
 async function loadAppData() {
@@ -74,6 +137,8 @@ function setCurrentStaffSession(value) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  trackPageView();
+  watchForGlobalReload();
   const navItems = [
     { label: 'Home', href: 'index.html' },
     { label: 'About Us', href: 'about.html' },
@@ -207,10 +272,39 @@ async function deleteEvent(eventId) {
 }
 
 async function deleteRegistration(registrationId) {
+  const registrations = await supabaseRequest(`registrations?id=eq.${encodeURIComponent(registrationId)}&select=event_id`);
   await supabaseRequest(`registrations?id=eq.${encodeURIComponent(registrationId)}`, { method: 'DELETE' });
+  if (registrations?.[0]?.event_id) await promoteWaitlistedRegistration(registrations[0].event_id);
 }
 
 async function updateRegistrationStatus(registrationId, status) {
+  const existing = await supabaseRequest(`registrations?id=eq.${encodeURIComponent(registrationId)}&select=event_id,status`);
+  const updated = await supabaseRequest(`registrations?id=eq.${encodeURIComponent(registrationId)}`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({ status })
+  });
+  if (existing?.[0]?.event_id && existing[0].status === 'confirmed' && status !== 'confirmed') {
+    await promoteWaitlistedRegistration(existing[0].event_id);
+  }
+  return normalizeRegistrations(updated || [])[0] || null;
+}
+
+async function promoteWaitlistedRegistration(eventId) {
+  const event = await getEventById(eventId);
+  if (!event?.waitlist_enabled) return null;
+
+  const registrations = await getEventRegistrations(eventId);
+  const confirmed = registrations.filter(item => item.status === 'confirmed').length;
+  const next = registrations
+    .filter(item => item.status === 'waitlist')
+    .sort((first, second) => new Date(first.createdAt) - new Date(second.createdAt))[0];
+
+  if (confirmed >= Number(event.capacity) || !next) return null;
+  return updateRegistrationStatusWithoutPromotion(next.id, 'confirmed');
+}
+
+async function updateRegistrationStatusWithoutPromotion(registrationId, status) {
   const updated = await supabaseRequest(`registrations?id=eq.${encodeURIComponent(registrationId)}`, {
     method: 'PATCH',
     headers: { Prefer: 'return=representation' },
@@ -317,7 +411,8 @@ async function ensureDefaultAdminProfile() {
     passwordHash: await secureHash(DEFAULT_ADMIN_PASSWORD, DEFAULT_ADMIN_SALT),
     salt: DEFAULT_ADMIN_SALT,
     createdAt: new Date().toISOString(),
-    isDefault: true
+    isDefault: true,
+    role: 'owner'
   };
 
   saveAdminProfiles([profile]);
@@ -326,7 +421,19 @@ async function ensureDefaultAdminProfile() {
 
 function getAdminProfile() {
   const profiles = getAdminProfiles();
-  return profiles[0] || null;
+  const session = getCurrentStaffSession();
+  return profiles.find(profile => profile.username === session?.username) || profiles[0] || null;
+}
+
+function getCurrentAdminRole() {
+  return getAdminProfile()?.role || 'owner';
+}
+
+function hasAdminPermission(permission) {
+  const role = getCurrentAdminRole();
+  if (role === 'owner') return true;
+  if (role === 'manager') return permission !== 'manageAdmins';
+  return permission === 'view';
 }
 
 function getAuthLockState() {
@@ -369,7 +476,7 @@ async function secureHash(value, salt) {
   return Array.from(new Uint8Array(derivedBits)).map(byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
-async function createAdminProfile(username, password) {
+async function createAdminProfile(username, password, role = 'manager') {
   const trimmedUser = String(username || '').trim();
   const passwordValue = String(password || '');
 
@@ -392,7 +499,8 @@ async function createAdminProfile(username, password) {
     usernameHash: await secureHash(trimmedUser.toLowerCase(), salt),
     passwordHash: await secureHash(passwordValue, salt),
     salt,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    role: ['manager', 'viewer'].includes(role) ? role : 'manager'
   };
 
   const updatedProfiles = [...existingProfiles, profile];
@@ -439,7 +547,7 @@ async function loginStaff(username, password) {
 
     if (usernameHash === profile.usernameHash && passwordHash === profile.passwordHash) {
       resetAuthLockState();
-      setCurrentStaffSession({ username: profile.username, loggedInAt: new Date().toISOString() });
+      setCurrentStaffSession({ username: profile.username, role: profile.role || 'owner', loggedInAt: new Date().toISOString() });
       return { ok: true };
     }
   }
