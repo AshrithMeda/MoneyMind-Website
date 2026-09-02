@@ -13,133 +13,90 @@
     <div class="container">
       <div class="dashboard-head">
         <div>
-          <span class="pill">Staff dashboard</span>
+          <span class="pill">Operations center</span>
           <h1>Workshop Manager</h1>
+          <p class="muted">Plan sessions, monitor capacity, and keep every registration organized.</p>
         </div>
-        <button id="logout" class="btn secondary">Log out</button>
+        <div class="dashboard-head__actions">
+          <button id="refresh" class="btn secondary">Refresh data</button>
+          <button id="logout" class="btn secondary">Log out</button>
+        </div>
       </div>
 
       <div id="stats" class="statgrid"></div>
 
       <div class="dashboard-grid">
-        <section class="card">
+        <section class="card dashboard-card dashboard-card--create">
+          <div class="card-kicker">Build the schedule</div>
           <h2>Add Event</h2>
           <form id="event-form">
             <div class="row">
-              <div class="field">
-                <label>Title</label>
-                <input id="title" required>
-              </div>
-              <div class="field">
-                <label>Emoji</label>
-                <input id="emoji" value="🌟">
-              </div>
+              <div class="field"><label>Title</label><input id="title" required></div>
+              <div class="field"><label>Emoji</label><input id="emoji" value="🌟"></div>
             </div>
-
-            <div class="field">
-              <label>Description</label>
-              <textarea id="description" required></textarea>
-            </div>
-
+            <div class="field"><label>Description</label><textarea id="description" required></textarea></div>
             <div class="row">
-              <div class="field">
-                <label>Date & time</label>
-                <input id="date" type="datetime-local" required>
-              </div>
-              <div class="field">
-                <label>Location</label>
-                <input id="location" required>
-              </div>
+              <div class="field"><label>Date & time</label><input id="date" type="datetime-local" required></div>
+              <div class="field"><label>Location</label><input id="location" required></div>
             </div>
-
             <div class="row">
-              <div class="field">
-                <label>Capacity</label>
-                <input id="capacity" type="number" min="1" value="20" required>
-              </div>
-              <div class="field">
-                <label>Financial concepts</label>
-                <input id="concepts" value="Budgeting, Teamwork">
-              </div>
+              <div class="field"><label>Capacity</label><input id="capacity" type="number" min="1" value="20" required></div>
+              <div class="field"><label>Financial concepts</label><input id="concepts" value="Budgeting, Teamwork"></div>
             </div>
-
+            <label class="check"><input id="waitlist-enabled" type="checkbox"> Enable waitlist when full</label>
             <button class="btn primary" type="submit">Create Event</button>
             <p id="event-message"></p>
           </form>
         </section>
 
-        <section class="card">
+        <section class="card dashboard-card">
+          <div class="card-kicker">Access control</div>
           <h2>Create Admin</h2>
           <form id="admin-form">
-            <div class="field">
-              <label>New admin username</label>
-              <input id="new-admin-username" type="text" minlength="3" required>
-            </div>
-            <div class="field">
-              <label>New admin password</label>
-              <input id="new-admin-password" type="password" minlength="8" required>
-            </div>
+            <div class="field"><label>New admin username</label><input id="new-admin-username" type="text" minlength="3" required></div>
+            <div class="field"><label>New admin password</label><input id="new-admin-password" type="password" minlength="8" required></div>
             <button class="btn secondary" type="submit">Create new admin login</button>
             <p id="admin-message"></p>
           </form>
-
-          <div class="admin-list-block">
-            <h3>Existing admin logins</h3>
-            <div id="admin-list" class="admin-list"></div>
-          </div>
+          <div class="admin-list-block"><h3>Existing admin logins</h3><div id="admin-list" class="admin-list"></div></div>
         </section>
 
-        <section class="card">
+        <section class="card dashboard-card dashboard-card--wide">
           <div class="section-head">
-            <h2>Current Events</h2>
-            <button id="refresh" class="btn secondary small">Refresh</button>
+            <div><div class="card-kicker">Live schedule</div><h2>Events</h2></div>
+            <span class="muted">Manage details and attendance from here</span>
           </div>
           <div id="event-list">Loading…</div>
-        </section>
-
-        <section class="card admin-edit-card">
-          <h2>Past Event Archive</h2>
-          <p class="muted">Choose a past event to add photos, reflections, and follow-up notes.</p>
-          <form id="event-editor-form">
-            <div class="field">
-              <label>Select past event</label>
-              <select id="edit-event-id"></select>
-            </div>
-            <div class="field">
-              <label>Updated title</label>
-              <input id="edit-event-title" type="text">
-            </div>
-            <div class="field">
-              <label>Event date</label>
-              <input id="edit-event-date" type="datetime-local">
-            </div>
-            <div class="field">
-              <label>Location</label>
-              <input id="edit-event-location" type="text">
-            </div>
-            <div class="field">
-              <label>Event summary</label>
-              <textarea id="edit-event-description"></textarea>
-            </div>
-            <div class="field">
-              <label>Photo URLs (one per line)</label>
-              <textarea id="edit-event-photos" rows="4"></textarea>
-            </div>
-            <div class="field">
-              <label>Reflection message</label>
-              <textarea id="edit-event-reflection" rows="5"></textarea>
-            </div>
-            <div class="field">
-              <label>Highlights / takeaways</label>
-              <textarea id="edit-event-highlights" rows="4"></textarea>
-            </div>
-            <button class="btn primary" type="submit">Save archive details</button>
-            <p id="archive-message"></p>
-          </form>
         </section>
       </div>
     </div>
   </main>
+
+  <dialog id="event-dialog" class="dashboard-dialog">
+    <form id="event-editor-form" method="dialog" class="dialog-form">
+      <div class="dialog-head"><div><div class="card-kicker">Event settings</div><h2>Edit event details</h2></div><button type="button" class="dialog-close" data-close-dialog="event-dialog" aria-label="Close">×</button></div>
+      <input id="edit-event-id" type="hidden">
+      <div class="row"><div class="field"><label>Title</label><input id="edit-event-title" required></div><div class="field"><label>Emoji</label><input id="edit-event-emoji"></div></div>
+      <div class="field"><label>Description</label><textarea id="edit-event-description" required></textarea></div>
+      <div class="row"><div class="field"><label>Date & time</label><input id="edit-event-date" type="datetime-local" required></div><div class="field"><label>Location</label><input id="edit-event-location" required></div></div>
+      <div class="row"><div class="field"><label>Capacity</label><input id="edit-event-capacity" type="number" min="1" required></div><div class="field"><label>Financial concepts</label><input id="edit-event-concepts"></div></div>
+      <div class="field"><label>Photo URLs (one per line)</label><textarea id="edit-event-photos" rows="3"></textarea></div>
+      <div class="field"><label>Reflection message</label><textarea id="edit-event-reflection" rows="3"></textarea></div>
+      <div class="field"><label>Highlights / takeaways</label><textarea id="edit-event-highlights" rows="3"></textarea></div>
+      <label class="check"><input id="edit-event-waitlist" type="checkbox"> Enable waitlist when full</label>
+      <label class="check"><input id="edit-event-published" type="checkbox"> Published on public events page</label>
+      <div class="dialog-actions"><button type="button" class="btn secondary" data-close-dialog="event-dialog">Cancel</button><button class="btn primary" type="submit">Save event details</button></div>
+      <p id="archive-message"></p>
+    </form>
+  </dialog>
+
+  <dialog id="registration-dialog" class="dashboard-dialog dashboard-dialog--wide">
+    <div class="dialog-form">
+      <div class="dialog-head"><div><div class="card-kicker">Attendance ledger</div><h2>Registration Details</h2></div><button type="button" class="dialog-close" data-close-dialog="registration-dialog" aria-label="Close">×</button></div>
+      <div class="registration-toolbar"><label class="field"><span>Filter by event</span><select id="registration-event-filter"><option value="all">All events</option></select></label><span id="registration-count" class="muted"></span></div>
+      <div id="registration-table" class="spreadsheet-wrap"></div>
+    </div>
+  </dialog>
 
   <div id="footer"></div>
   <script src="js/config.js"></script>

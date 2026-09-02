@@ -31,7 +31,19 @@ async function loadAppData() {
     supabaseRequest('events?select=*&order=date.asc'),
     supabaseRequest('registrations?select=*')
   ]);
-  return { events, registrations };
+  return { events, registrations: normalizeRegistrations(registrations) };
+}
+
+function normalizeRegistrations(registrations) {
+  return registrations.map(registration => ({
+    ...registration,
+    eventId: registration.event_id,
+    studentName: registration.student_name,
+    parentName: registration.parent_name,
+    parentEmail: registration.parent_email,
+    parentPhone: registration.parent_phone,
+    createdAt: registration.created_at
+  }));
 }
 
 async function getEventById(id) {
@@ -42,15 +54,7 @@ async function getEventById(id) {
 
 async function getEventRegistrations(eventId) {
   const registrations = await supabaseRequest(`registrations?event_id=eq.${encodeURIComponent(eventId)}&status=neq.cancelled&select=*`);
-  return registrations.map(registration => ({
-    ...registration,
-    eventId: registration.event_id,
-    studentName: registration.student_name,
-    parentName: registration.parent_name,
-    parentEmail: registration.parent_email,
-    parentPhone: registration.parent_phone,
-    createdAt: registration.created_at
-  }));
+  return normalizeRegistrations(registrations);
 }
 
 function getCurrentStaffSession() {
@@ -166,6 +170,10 @@ async function addRegistration(payload) {
   if (!event) return { ok: false, message: 'Workshop not found.' };
 
   const { confirmed } = await getRegistrationSummary(payload.eventId);
+  if (confirmed >= Number(event.capacity) && !event.waitlist_enabled) {
+    return { ok: false, message: 'This workshop is currently full and the waitlist is not open.' };
+  }
+
   const status = confirmed >= Number(event.capacity) ? 'waitlist' : 'confirmed';
 
   await supabaseRequest('registrations', {
@@ -198,6 +206,19 @@ async function deleteEvent(eventId) {
   await supabaseRequest(`events?id=eq.${encodeURIComponent(eventId)}`, { method: 'DELETE' });
 }
 
+async function deleteRegistration(registrationId) {
+  await supabaseRequest(`registrations?id=eq.${encodeURIComponent(registrationId)}`, { method: 'DELETE' });
+}
+
+async function updateRegistrationStatus(registrationId, status) {
+  const updated = await supabaseRequest(`registrations?id=eq.${encodeURIComponent(registrationId)}`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({ status })
+  });
+  return normalizeRegistrations(updated || [])[0] || null;
+}
+
 async function createEvent(payload) {
   const id = slugify(payload.title) + '-' + Date.now().toString().slice(-5);
 
@@ -216,7 +237,8 @@ async function createEvent(payload) {
     published: true,
     photos: Array.isArray(payload.photos) ? payload.photos.filter(Boolean) : [],
     reflection: payload.reflection || '',
-    highlights: payload.highlights || ''
+    highlights: payload.highlights || '',
+    waitlist_enabled: !!payload.waitlist_enabled
     })
   });
   return id;
@@ -242,7 +264,8 @@ async function updateEvent(eventId, payload) {
     published: payload.published !== undefined ? !!payload.published : event.published,
     photos: Array.isArray(payload.photos) ? payload.photos.filter(Boolean) : (Array.isArray(event.photos) ? event.photos : []),
     reflection: payload.reflection !== undefined ? payload.reflection : (event.reflection || ''),
-    highlights: payload.highlights !== undefined ? payload.highlights : (event.highlights || '')
+    highlights: payload.highlights !== undefined ? payload.highlights : (event.highlights || ''),
+    waitlist_enabled: payload.waitlist_enabled !== undefined ? !!payload.waitlist_enabled : !!event.waitlist_enabled
   };
 
   const updated = await supabaseRequest(`events?id=eq.${encodeURIComponent(eventId)}`, {
@@ -259,7 +282,8 @@ async function updateEvent(eventId, payload) {
       published: updatedEvent.published,
       photos: updatedEvent.photos,
       reflection: updatedEvent.reflection,
-      highlights: updatedEvent.highlights
+      highlights: updatedEvent.highlights,
+      waitlist_enabled: updatedEvent.waitlist_enabled
     })
   });
   return updated[0] || updatedEvent;

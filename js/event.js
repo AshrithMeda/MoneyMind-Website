@@ -9,6 +9,7 @@ if (box) (async () => {
   } else {
     const { confirmed } = await getRegistrationSummary(workshop.id);
     const full = confirmed >= Number(workshop.capacity);
+    const waitlistEnabled = !!workshop.waitlist_enabled;
 
     box.innerHTML = `
       <div class="emoji hero-emoji">${esc(workshop.emoji || '🌟')}</div>
@@ -19,7 +20,7 @@ if (box) (async () => {
       <div>${(workshop.financial_concepts || []).map(item => `<span class="tag">${esc(item)}</span>`).join('')}</div>
       <hr>
       <p class="muted"><strong>${confirmed}</strong> registered • <strong>${Math.max(0, Number(workshop.capacity) - confirmed)}</strong> spots left</p>
-      ${full ? '<div class="error">This workshop is currently full. You can still join the waitlist.</div>' : ''}
+      ${full ? `<div class="${waitlistEnabled ? 'notice' : 'error'}">${waitlistEnabled ? 'This workshop is currently full. You can join the waitlist.' : 'This workshop is currently full and the waitlist is not open.'}</div>` : ''}
       <form id="registration-form" class="form-inner">
         <h2>Sign up</h2>
         <div class="row">
@@ -48,7 +49,7 @@ if (box) (async () => {
           <input id="consent" type="checkbox" required>
           Parent/guardian confirms the information is accurate and agrees to the workshop registration.
         </label>
-        <button class="btn primary" type="submit">${full ? 'Join Waitlist' : 'Reserve My Spot'}</button>
+        <button class="btn primary" type="submit" ${full && !waitlistEnabled ? 'disabled' : ''}>${full ? 'Join Waitlist' : 'Reserve My Spot'}</button>
         <p id="reg-message"></p>
       </form>
     `;

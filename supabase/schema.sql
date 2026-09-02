@@ -11,6 +11,7 @@ create table if not exists public.events (
   photos text[] not null default '{}',
   reflection text not null default '',
   highlights text not null default '',
+  waitlist_enabled boolean not null default false,
   created_at timestamptz not null default now()
 );
 
@@ -26,6 +27,8 @@ create table if not exists public.registrations (
   status text not null default 'confirmed' check (status in ('confirmed', 'waitlist', 'cancelled')),
   created_at timestamptz not null default now()
 );
+
+alter table public.events add column if not exists waitlist_enabled boolean not null default false;
 
 alter table public.events enable row level security;
 alter table public.registrations enable row level security;
@@ -54,3 +57,16 @@ create policy "Public can create registrations"
   on public.registrations for insert
   to anon, authenticated
   with check (true);
+
+drop policy if exists "Site can update registrations" on public.registrations;
+create policy "Site can update registrations"
+  on public.registrations for update
+  to anon, authenticated
+  using (true)
+  with check (true);
+
+drop policy if exists "Site can delete registrations" on public.registrations;
+create policy "Site can delete registrations"
+  on public.registrations for delete
+  to anon, authenticated
+  using (true);
