@@ -1,4 +1,3 @@
-const MONEYQUEST_STORAGE_KEY = 'moneyquest_local_data_v1';
 const MONEYQUEST_SESSION_KEY = 'moneyquest_staff_session';
 const MONEYQUEST_ADMIN_KEY = 'moneyquest_admin_profiles_v1';
 const MONEYQUEST_AUTH_LOCK_KEY = 'moneyquest_auth_lockout_v1';
@@ -6,47 +5,52 @@ const MONEYQUEST_AUTH_LIMIT = { maxAttempts: 5, lockoutMs: 10 * 60 * 1000 };
 const DEFAULT_ADMIN_USERNAME = 'AshrithMeda';
 const DEFAULT_ADMIN_PASSWORD = 'meda8961*';
 const DEFAULT_ADMIN_SALT = 'moneyquest-default-admin-salt-v1';
-const LEGACY_EVENT_IDS = new Set(['island-survival', 'startup-lab', 'money-escape-room']);
 
-const defaultData = {
-  events: [],
-  registrations: []
-};
-
-function loadAppData() {
-  try {
-    const raw = localStorage.getItem(MONEYQUEST_STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(MONEYQUEST_STORAGE_KEY, JSON.stringify(defaultData));
-      return structuredClone(defaultData);
+async function supabaseRequest(path, options = {}) {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    ...options,
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      'Content-Type': 'application/json',
+      ...(options.headers || {})
     }
-    const parsed = JSON.parse(raw);
-    const data = {
-      events: Array.isArray(parsed.events)
-        ? parsed.events.filter(event => event && !LEGACY_EVENT_IDS.has(event.id))
-        : [],
-      registrations: Array.isArray(parsed.registrations) ? parsed.registrations : []
-    };
-    localStorage.setItem(MONEYQUEST_STORAGE_KEY, JSON.stringify(data));
-    return data;
-  } catch (error) {
-    localStorage.setItem(MONEYQUEST_STORAGE_KEY, JSON.stringify(defaultData));
-    return structuredClone(defaultData);
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`Supabase request failed (${response.status}): ${detail}`);
   }
+
+  const body = await response.text();
+  return body ? JSON.parse(body) : null;
 }
 
-function saveAppData(data) {
-  localStorage.setItem(MONEYQUEST_STORAGE_KEY, JSON.stringify(data));
+async function loadAppData() {
+  const [events, registrations] = await Promise.all([
+    supabaseRequest('events?select=*&order=date.asc'),
+    supabaseRequest('registrations?select=*')
+  ]);
+  return { events, registrations };
 }
 
-function getEventById(id) {
-  const { events } = loadAppData();
-  return events.find(event => event.id === id) || null;
+async function getEventById(id) {
+  if (!id) return null;
+  const events = await supabaseRequest(`events?id=eq.${encodeURIComponent(id)}&select=*`);
+  return events[0] || null;
 }
 
-function getEventRegistrations(eventId) {
-  const { registrations } = loadAppData();
-  return registrations.filter(item => item.eventId === eventId && item.status !== 'cancelled');
+async function getEventRegistrations(eventId) {
+  const registrations = await supabaseRequest(`registrations?event_id=eq.${encodeURIComponent(eventId)}&status=neq.cancelled&select=*`);
+  return registrations.map(registration => ({
+    ...registration,
+    eventId: registration.event_id,
+    studentName: registration.student_name,
+    parentName: registration.parent_name,
+    parentEmail: registration.parent_email,
+    parentPhone: registration.parent_phone,
+    createdAt: registration.created_at
+  }));
 }
 
 function getCurrentStaffSession() {
@@ -138,17 +142,17 @@ function slugify(value) {
     .replace(/^-+|-+$/g, '') || 'event';
 }
 
-function getRegistrationSummary(eventId) {
-  const registrations = getEventRegistrations(eventId);
+async function getRegistrationSummary(eventId) {
+  const registrations = await getEventRegistrations(eventId);
   const confirmed = registrations.filter(item => item.status === 'confirmed').length;
   const waitlist = registrations.filter(item => item.status === 'waitlist').length;
   return { confirmed, waitlist };
 }
 
-function getEventCapacityStatus(eventId) {
-  const event = getEventById(eventId);
+async function getEventCapacityStatus(eventId) {
+  const event = await getEventById(eventId);
   if (!event) return { full: false, spotsLeft: 0, waitlist: 0 };
-  const { confirmed, waitlist } = getRegistrationSummary(eventId);
+  const { confirmed, waitlist } = await getRegistrationSummary(eventId);
   const spotsLeft = Math.max(0, Number(event.capacity) - confirmed);
   return {
     full: confirmed >= Number(event.capacity),
@@ -157,28 +161,29 @@ function getEventCapacityStatus(eventId) {
   };
 }
 
-function addRegistration(payload) {
-  const data = loadAppData();
-  const event = getEventById(payload.eventId);
+async function addRegistration(payload) {
+  const event = await getEventById(payload.eventId);
   if (!event) return { ok: false, message: 'Workshop not found.' };
 
-  const { confirmed } = getRegistrationSummary(payload.eventId);
+  const { confirmed } = await getRegistrationSummary(payload.eventId);
   const status = confirmed >= Number(event.capacity) ? 'waitlist' : 'confirmed';
 
-  data.registrations.push({
+  await supabaseRequest('registrations', {
+    method: 'POST',
+    headers: { Prefer: 'return=minimal' },
+    body: JSON.stringify({
     id: crypto.randomUUID ? crypto.randomUUID() : `reg-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-    eventId: payload.eventId,
-    studentName: payload.studentName,
+    event_id: payload.eventId,
+    student_name: payload.studentName,
     age: payload.age,
-    parentName: payload.parentName,
-    parentEmail: payload.parentEmail,
-    parentPhone: payload.parentPhone || '',
+    parent_name: payload.parentName,
+    parent_email: payload.parentEmail,
+    parent_phone: payload.parentPhone || '',
     consent: !!payload.consent,
     status,
-    createdAt: new Date().toISOString()
+    created_at: new Date().toISOString()
+    })
   });
-
-  saveAppData(data);
 
   return {
     ok: true,
@@ -189,18 +194,17 @@ function addRegistration(payload) {
   };
 }
 
-function deleteEvent(eventId) {
-  const data = loadAppData();
-  data.events = data.events.filter(event => event.id !== eventId);
-  data.registrations = data.registrations.filter(reg => reg.eventId !== eventId);
-  saveAppData(data);
+async function deleteEvent(eventId) {
+  await supabaseRequest(`events?id=eq.${encodeURIComponent(eventId)}`, { method: 'DELETE' });
 }
 
-function createEvent(payload) {
-  const data = loadAppData();
+async function createEvent(payload) {
   const id = slugify(payload.title) + '-' + Date.now().toString().slice(-5);
 
-  data.events.push({
+  await supabaseRequest('events', {
+    method: 'POST',
+    headers: { Prefer: 'return=minimal' },
+    body: JSON.stringify({
     id,
     title: payload.title,
     emoji: payload.emoji || '🌟',
@@ -213,9 +217,8 @@ function createEvent(payload) {
     photos: Array.isArray(payload.photos) ? payload.photos.filter(Boolean) : [],
     reflection: payload.reflection || '',
     highlights: payload.highlights || ''
+    })
   });
-
-  saveAppData(data);
   return id;
 }
 
@@ -224,12 +227,11 @@ function isEventPast(event) {
   return new Date(event.date).getTime() < Date.now();
 }
 
-function updateEvent(eventId, payload) {
-  const data = loadAppData();
-  const event = data.events.find(item => item.id === eventId);
+async function updateEvent(eventId, payload) {
+  const event = await getEventById(eventId);
   if (!event) return null;
 
-  Object.assign(event, {
+  const updatedEvent = {
     title: payload.title || event.title,
     emoji: payload.emoji || event.emoji || '🌟',
     date: payload.date || event.date,
@@ -241,10 +243,26 @@ function updateEvent(eventId, payload) {
     photos: Array.isArray(payload.photos) ? payload.photos.filter(Boolean) : (Array.isArray(event.photos) ? event.photos : []),
     reflection: payload.reflection !== undefined ? payload.reflection : (event.reflection || ''),
     highlights: payload.highlights !== undefined ? payload.highlights : (event.highlights || '')
-  });
+  };
 
-  saveAppData(data);
-  return event;
+  const updated = await supabaseRequest(`events?id=eq.${encodeURIComponent(eventId)}`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({
+      title: updatedEvent.title,
+      emoji: updatedEvent.emoji,
+      date: updatedEvent.date,
+      location: updatedEvent.location,
+      capacity: updatedEvent.capacity,
+      description: updatedEvent.description,
+      financial_concepts: updatedEvent.financial_concepts,
+      published: updatedEvent.published,
+      photos: updatedEvent.photos,
+      reflection: updatedEvent.reflection,
+      highlights: updatedEvent.highlights
+    })
+  });
+  return updated[0] || updatedEvent;
 }
 
 function getAdminProfiles() {

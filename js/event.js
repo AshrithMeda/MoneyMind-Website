@@ -1,13 +1,13 @@
 const box = document.getElementById('event');
 const workshopId = getId();
 
-if (box) {
-  const workshop = getEventById(workshopId);
+if (box) (async () => {
+  const workshop = await getEventById(workshopId);
 
   if (!workshop) {
     box.innerHTML = '<div class="error">No workshop selected.</div>';
   } else {
-    const { confirmed } = getRegistrationSummary(workshop.id);
+    const { confirmed } = await getRegistrationSummary(workshop.id);
     const full = confirmed >= Number(workshop.capacity);
 
     box.innerHTML = `
@@ -55,7 +55,7 @@ if (box) {
 
     const form = document.getElementById('registration-form');
     if (form) {
-      form.addEventListener('submit', event => {
+      form.addEventListener('submit', async event => {
         event.preventDefault();
         const studentName = document.getElementById('student_name').value.trim();
         const age = document.getElementById('age').value.trim();
@@ -71,7 +71,7 @@ if (box) {
           return;
         }
 
-        const result = addRegistration({
+        const result = await addRegistration({
           eventId: workshop.id,
           studentName,
           age: Number(age),
@@ -87,4 +87,6 @@ if (box) {
       });
     }
   }
-}
+})().catch(error => {
+  box.innerHTML = `<div class="error">Unable to load this workshop: ${esc(error.message)}</div>`;
+});

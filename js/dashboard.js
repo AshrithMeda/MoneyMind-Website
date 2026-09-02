@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   if (!isAdminLoggedIn()) {
     location.href = 'login.html';
     return;
@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (refreshBtn) refreshBtn.addEventListener('click', renderDashboard);
 
   if (eventForm) {
-    eventForm.addEventListener('submit', event => {
+    eventForm.addEventListener('submit', async event => {
       event.preventDefault();
       const message = document.getElementById('event-message');
       const title = document.getElementById('title').value.trim();
@@ -49,14 +49,14 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      createEvent({ title, description, date, location, capacity, emoji, financial_concepts: concepts });
+      await createEvent({ title, description, date, location, capacity, emoji, financial_concepts: concepts });
       message.textContent = 'Event created successfully.';
       message.className = 'notice';
       eventForm.reset();
       document.getElementById('capacity').value = '20';
       document.getElementById('emoji').value = '🌟';
       document.getElementById('concepts').value = 'Budgeting, Teamwork';
-      renderDashboard();
+      await renderDashboard();
     });
   }
 
@@ -81,13 +81,13 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   renderAdminList();
-  renderDashboard();
-  populateArchiveEditor();
+  await renderDashboard();
+  await populateArchiveEditor();
 
-  function populateArchiveEditor() {
+  async function populateArchiveEditor() {
     if (!editEventSelect) return;
 
-    const { events } = loadAppData();
+    const { events } = await loadAppData();
     const pastEvents = events.filter(event => isEventPast(event));
 
     if (!pastEvents.length) {
@@ -112,8 +112,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (editEventSelect) {
-    editEventSelect.addEventListener('change', () => {
-      const { events } = loadAppData();
+    editEventSelect.addEventListener('change', async () => {
+      const { events } = await loadAppData();
       const selected = events.find(event => event.id === editEventSelect.value);
       if (!selected) return;
       editEventTitle.value = selected.title || '';
@@ -127,7 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (editEventForm) {
-    editEventForm.addEventListener('submit', event => {
+    editEventForm.addEventListener('submit', async event => {
       event.preventDefault();
       if (!editEventSelect.value) {
         archiveMessage.textContent = 'There are no past events to update yet.';
@@ -140,7 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
         .map(item => item.trim())
         .filter(Boolean);
 
-      updateEvent(editEventSelect.value, {
+      await updateEvent(editEventSelect.value, {
         title: editEventTitle.value.trim(),
         date: editEventDate.value,
         location: editEventLocation.value.trim(),
@@ -152,8 +152,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       archiveMessage.textContent = 'Past event details saved successfully.';
       archiveMessage.className = 'notice';
-      renderDashboard();
-      populateArchiveEditor();
+      await renderDashboard();
+      await populateArchiveEditor();
     });
   }
 
@@ -186,11 +186,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  function renderDashboard() {
-    const { events, registrations } = loadAppData();
+  async function renderDashboard() {
+    const { events, registrations } = await loadAppData();
     const totalRegistrations = registrations.filter(item => item.status !== 'cancelled').length;
     const totalCapacity = events.reduce((sum, event) => sum + Number(event.capacity || 0), 0);
-    const fullEvents = events.filter(event => getEventRegistrations(event.id).filter(item => item.status === 'confirmed').length >= Number(event.capacity || 0)).length;
+    const eventRegistrations = await Promise.all(events.map(event => getEventRegistrations(event.id)));
+    const fullEvents = events.filter((event, index) => eventRegistrations[index].filter(item => item.status === 'confirmed').length >= Number(event.capacity || 0)).length;
 
     stats.innerHTML = `
       <div class="card"><div class="stat">${events.length}</div><div class="muted">Events</div></div>
@@ -204,8 +205,8 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    eventList.innerHTML = events.map(event => {
-      const regs = getEventRegistrations(event.id);
+    eventList.innerHTML = events.map((event, index) => {
+      const regs = eventRegistrations[index];
       const confirmed = regs.filter(item => item.status === 'confirmed').length;
       const waitlist = regs.filter(item => item.status === 'waitlist').length;
       const full = confirmed >= Number(event.capacity || 0);
@@ -245,8 +246,9 @@ document.addEventListener('DOMContentLoaded', () => {
       button.addEventListener('click', () => {
         const eventId = button.dataset.delete;
         if (!confirm('Delete this event and all related registrations?')) return;
-        deleteEvent(eventId);
-        renderDashboard();
+        deleteEvent(eventId).then(renderDashboard).catch(error => {
+          alert(`Unable to delete event: ${error.message}`);
+        });
       });
     });
   }

@@ -2,10 +2,10 @@ const box = document.getElementById('events');
 const tabs = Array.from(document.querySelectorAll('[data-event-tab]'));
 let activeTab = 'upcoming';
 
-function renderEventCards() {
+async function renderEventCards() {
   if (!box) return;
 
-  const data = loadAppData();
+  const data = await loadAppData();
   const publishedEvents = data.events.filter(event => event.published !== false);
   const filtered = publishedEvents.filter(event => activeTab === 'past' ? isEventPast(event) : !isEventPast(event));
 
@@ -18,8 +18,9 @@ function renderEventCards() {
     return;
   }
 
-  box.innerHTML = filtered.map(event => {
-    const { confirmed, waitlist } = getRegistrationSummary(event.id);
+  const summaries = await Promise.all(filtered.map(event => getRegistrationSummary(event.id)));
+  box.innerHTML = filtered.map((event, index) => {
+    const { confirmed, waitlist } = summaries[index];
     const spotsRemaining = Math.max(0, Number(event.capacity) - confirmed);
     const full = confirmed >= Number(event.capacity);
     const isPast = isEventPast(event);
@@ -57,7 +58,9 @@ if (box) {
       tab.classList.toggle('is-active', selected);
       tab.setAttribute('aria-selected', String(selected));
     });
-    renderEventCards();
+    renderEventCards().catch(error => {
+      box.innerHTML = `<div class="error">Unable to load workshops: ${esc(error.message)}</div>`;
+    });
   };
 
   tabs.forEach(tab => {
