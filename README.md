@@ -25,5 +25,7 @@ A simple static website for a youth financial literacy nonprofit. Events and reg
 
 Run `supabase/schema.sql` again after dashboard upgrades. It creates the analytics and global reload-signal tables used by the staff dashboard.
 
+The same migration creates the shared owner login: username `admin`, password `Moneymind1234*`. New admin accounts created from the dashboard are stored in Supabase and work across devices.
+
 ## Hosting
 This folder can be hosted on any static host such as GitHub Pages, Netlify, Cloudflare Pages, or a traditional web host.

@@ -42,12 +42,36 @@ create table if not exists public.site_reload_signals (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.admin_profiles (
+  username text primary key,
+  username_hash text not null,
+  password_hash text not null,
+  salt text not null,
+  role text not null default 'viewer' check (role in ('owner', 'manager', 'viewer')),
+  created_at timestamptz not null default now()
+);
+
+insert into public.admin_profiles (username, username_hash, password_hash, salt, role)
+values (
+  'admin',
+  'afa41df6f5d063848fa0b03ffbaa3c515ca9432deba0996bcaa0795a5edfff0d',
+  '24cfd694725ea1b0e62df1b70aef274c05f63053ac7a10f5a74dbeca893e561e',
+  'moneymind-owner-admin-salt-v1',
+  'owner'
+)
+on conflict (username) do update set
+  username_hash = excluded.username_hash,
+  password_hash = excluded.password_hash,
+  salt = excluded.salt,
+  role = 'owner';
+
 alter table public.events add column if not exists waitlist_enabled boolean not null default false;
 
 alter table public.events enable row level security;
 alter table public.registrations enable row level security;
 alter table public.site_analytics enable row level security;
 alter table public.site_reload_signals enable row level security;
+alter table public.admin_profiles enable row level security;
 
 drop policy if exists "Public can read events" on public.events;
 create policy "Public can read events"
@@ -108,5 +132,23 @@ create policy "Site can publish reload signals"
 drop policy if exists "Public can read reload signals" on public.site_reload_signals;
 create policy "Public can read reload signals"
   on public.site_reload_signals for select
+  to anon, authenticated
+  using (true);
+
+drop policy if exists "Admins can read admin profiles" on public.admin_profiles;
+create policy "Admins can read admin profiles"
+  on public.admin_profiles for select
+  to anon, authenticated
+  using (true);
+
+drop policy if exists "Admins can create admin profiles" on public.admin_profiles;
+create policy "Admins can create admin profiles"
+  on public.admin_profiles for insert
+  to anon, authenticated
+  with check (true);
+
+drop policy if exists "Admins can delete admin profiles" on public.admin_profiles;
+create policy "Admins can delete admin profiles"
+  on public.admin_profiles for delete
   to anon, authenticated
   using (true);

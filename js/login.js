@@ -20,7 +20,14 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const result = await loginStaff(username, password);
+    let result;
+    try {
+      result = await loginStaff(username, password);
+    } catch (error) {
+      message.textContent = `Unable to connect to shared login storage. ${error.message}`;
+      message.className = 'error';
+      return;
+    }
     if (result.ok) {
       location.href = 'dashboard.html';
       return;

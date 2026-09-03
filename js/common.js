@@ -1,10 +1,12 @@
 const MONEYQUEST_SESSION_KEY = 'moneyquest_staff_session';
-const MONEYQUEST_ADMIN_KEY = 'moneyquest_admin_profiles_v1';
 const MONEYQUEST_AUTH_LOCK_KEY = 'moneyquest_auth_lockout_v1';
 const MONEYQUEST_AUTH_LIMIT = { maxAttempts: 5, lockoutMs: 10 * 60 * 1000 };
 const DEFAULT_ADMIN_USERNAME = 'AshrithMeda';
 const DEFAULT_ADMIN_PASSWORD = 'meda8961*';
 const DEFAULT_ADMIN_SALT = 'moneyquest-default-admin-salt-v1';
+const OWNER_USERNAME = 'admin';
+const OWNER_PASSWORD = 'Moneymind1234*';
+const OWNER_SALT = 'moneymind-owner-admin-salt-v1';
 const ANALYTICS_VISITOR_KEY = 'moneyquest_analytics_visitor_v1';
 const RELOAD_POLL_MS = 10000;
 const pageStartedAt = new Date().toISOString();
@@ -383,46 +385,38 @@ async function updateEvent(eventId, payload) {
   return updated[0] || updatedEvent;
 }
 
-function getAdminProfiles() {
-  try {
-    const raw = localStorage.getItem(MONEYQUEST_ADMIN_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-
-    if (Array.isArray(parsed)) return parsed;
-    if (parsed && parsed.usernameHash && parsed.passwordHash) return [parsed];
-    return [];
-  } catch {
-    return [];
-  }
+async function getAdminProfiles() {
+  return supabaseRequest('admin_profiles?select=*&order=created_at.asc');
 }
 
-function saveAdminProfiles(profiles) {
-  localStorage.setItem(MONEYQUEST_ADMIN_KEY, JSON.stringify(profiles));
+async function ensureOwnerProfile() {
+  const profiles = await supabaseRequest(`admin_profiles?username=eq.${OWNER_USERNAME}&select=*`);
+  if (profiles.length) return profiles[0];
+
+  const profile = {
+    username: OWNER_USERNAME,
+    username_hash: await secureHash(OWNER_USERNAME, OWNER_SALT),
+    password_hash: await secureHash(OWNER_PASSWORD, OWNER_SALT),
+    salt: OWNER_SALT,
+    role: 'owner',
+    created_at: new Date().toISOString()
+  };
+  const created = await supabaseRequest('admin_profiles', {
+    method: 'POST',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify(profile)
+  });
+  return created?.[0] || profile;
 }
 
 async function ensureDefaultAdminProfile() {
-  const profiles = getAdminProfiles();
-  if (profiles.length) return profiles;
-
-  const profile = {
-    username: DEFAULT_ADMIN_USERNAME,
-    usernameHash: await secureHash(DEFAULT_ADMIN_USERNAME.toLowerCase(), DEFAULT_ADMIN_SALT),
-    passwordHash: await secureHash(DEFAULT_ADMIN_PASSWORD, DEFAULT_ADMIN_SALT),
-    salt: DEFAULT_ADMIN_SALT,
-    createdAt: new Date().toISOString(),
-    isDefault: true,
-    role: 'owner'
-  };
-
-  saveAdminProfiles([profile]);
-  return [profile];
+  await ensureOwnerProfile();
+  return getAdminProfiles();
 }
 
 function getAdminProfile() {
-  const profiles = getAdminProfiles();
   const session = getCurrentStaffSession();
-  return profiles.find(profile => profile.username === session?.username) || profiles[0] || null;
+  return session ? { username: session.username, role: session.role || 'owner' } : null;
 }
 
 function getCurrentAdminRole() {
@@ -484,7 +478,7 @@ async function createAdminProfile(username, password, role = 'manager') {
     throw new Error('Choose a username with at least 3 characters and a password with at least 8 characters.');
   }
 
-  const existingProfiles = getAdminProfiles();
+  const existingProfiles = await getAdminProfiles();
   const duplicate = existingProfiles.some(profile => profile.username.toLowerCase() === trimmedUser.toLowerCase());
   if (duplicate) {
     throw new Error('That admin username already exists. Please choose another one.');
@@ -496,30 +490,33 @@ async function createAdminProfile(username, password, role = 'manager') {
 
   const profile = {
     username: trimmedUser,
-    usernameHash: await secureHash(trimmedUser.toLowerCase(), salt),
-    passwordHash: await secureHash(passwordValue, salt),
+    username_hash: await secureHash(trimmedUser.toLowerCase(), salt),
+    password_hash: await secureHash(passwordValue, salt),
     salt,
-    createdAt: new Date().toISOString(),
+    created_at: new Date().toISOString(),
     role: ['manager', 'viewer'].includes(role) ? role : 'manager'
   };
 
-  const updatedProfiles = [...existingProfiles, profile];
-  saveAdminProfiles(updatedProfiles);
+  await supabaseRequest('admin_profiles', {
+    method: 'POST',
+    headers: { Prefer: 'return=minimal' },
+    body: JSON.stringify(profile)
+  });
   resetAuthLockState();
   return profile;
 }
 
-function deleteAdminProfile(username) {
+async function deleteAdminProfile(username) {
   const trimmedUser = String(username || '').trim();
-  const profiles = getAdminProfiles().filter(profile => profile.username.toLowerCase() !== trimmedUser.toLowerCase());
-  saveAdminProfiles(profiles);
+  if (trimmedUser.toLowerCase() === OWNER_USERNAME) return getAdminProfiles();
+  await supabaseRequest(`admin_profiles?username=eq.${encodeURIComponent(trimmedUser)}`, { method: 'DELETE' });
 
   const currentSession = getCurrentStaffSession();
   if (currentSession && currentSession.username && currentSession.username.toLowerCase() === trimmedUser.toLowerCase()) {
     logoutStaff();
   }
 
-  return profiles;
+  return getAdminProfiles();
 }
 
 function isAdminLoggedIn() {
@@ -527,10 +524,8 @@ function isAdminLoggedIn() {
 }
 
 async function loginStaff(username, password) {
-  let profiles = getAdminProfiles();
-  if (!profiles.length) {
-    profiles = await ensureDefaultAdminProfile();
-  }
+  await ensureOwnerProfile();
+  const profiles = await getAdminProfiles();
 
   const lockState = getAuthLockState();
   const now = Date.now();
@@ -545,9 +540,9 @@ async function loginStaff(username, password) {
     const usernameHash = await secureHash(submittedUsername, profile.salt);
     const passwordHash = await secureHash(submittedPassword, profile.salt);
 
-    if (usernameHash === profile.usernameHash && passwordHash === profile.passwordHash) {
+    if (usernameHash === profile.username_hash && passwordHash === profile.password_hash) {
       resetAuthLockState();
-      setCurrentStaffSession({ username: profile.username, role: profile.role || 'owner', loggedInAt: new Date().toISOString() });
+      setCurrentStaffSession({ username: profile.username, role: profile.role || 'viewer', loggedInAt: new Date().toISOString() });
       return { ok: true };
     }
   }

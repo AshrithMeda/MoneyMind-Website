@@ -89,7 +89,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       message.textContent = 'New admin account created successfully.';
       message.className = 'notice';
       adminForm.reset();
-      renderAdminList();
+      await renderAdminList();
     } catch (error) {
       message.textContent = error.message;
       message.className = 'error';
@@ -269,17 +269,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     }));
   }
 
-  function renderAdminList() {
+  async function renderAdminList() {
     if (!adminList) return;
-    const profiles = getAdminProfiles();
-    adminList.innerHTML = profiles.length ? profiles.map(profile => `<div class="admin-item"><div class="admin-item__meta"><strong>${esc(profile.username || 'Admin')}</strong><span class="muted">${profile.isDefault ? 'Default admin' : 'Custom admin'} · ${esc(profile.role || 'owner')}</span></div><button class="btn danger small" data-remove-admin="${esc(profile.username)}">Remove</button></div>`).join('') : '<p class="muted">No other admin logins yet.</p>';
-    adminList.querySelectorAll('[data-remove-admin]').forEach(button => button.addEventListener('click', () => {
+    const profiles = await getAdminProfiles();
+    adminList.innerHTML = profiles.length ? profiles.map(profile => `<div class="admin-item"><div class="admin-item__meta"><strong>${esc(profile.username || 'Admin')}</strong><span class="muted">${profile.username === 'admin' ? 'Owner account' : 'Shared admin'} · ${esc(profile.role || 'viewer')}</span></div>${profile.username === 'admin' ? '' : `<button class="btn danger small" data-remove-admin="${esc(profile.username)}">Remove</button>`}</div>`).join('') : '<p class="muted">No other admin logins yet.</p>';
+    adminList.querySelectorAll('[data-remove-admin]').forEach(button => button.addEventListener('click', async () => {
       if (!confirm(`Remove admin ${button.dataset.removeAdmin}? This will delete their login access.`)) return;
-      deleteAdminProfile(button.dataset.removeAdmin);
-      renderAdminList();
+      await deleteAdminProfile(button.dataset.removeAdmin);
+      await renderAdminList();
     }));
   }
 
-  renderAdminList();
+  await renderAdminList();
   await loadDashboard();
 });
